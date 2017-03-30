@@ -22,6 +22,7 @@ major_poi = {
     "new Beat": "New community Beats",
 }
 
+
 def get_PRs(session, search):
 
     prs = []
@@ -66,19 +67,23 @@ def get_labels(pr):
     return labels
 
 
-def get_poi(pr):
-
-    labels = get_labels(pr)
+def get_poi(labels):
 
     for poi in major_poi:
         if poi in labels:
             return major_poi[poi]
-        return "Other"
+    return "Other"
 
 
 def get_branch(pr):
     if "base" in pr:
         return pr["base"]["label"]
+
+
+def get_backported_pr(pr):
+
+    v = pr["title"].split()
+    return (v[1][1:])
 
 
 def dump_html(summary):
@@ -92,7 +97,7 @@ def dump_html(summary):
 
             print "<ul>"
             for pr in list:
-                print "<li>{} <a href=\"{}\">#{}</a> </li>".format(pr["title"], pr["link"], pr["number"])
+                print "<li>{} <a href=\"{}\">#{}</a> {}</li>".format(pr["title"], pr["link"], pr["number"], pr["labels"])
             print "</ul>"
         print "</p>"
 
@@ -104,18 +109,28 @@ def main():
     session.headers.update({"Authorization": "token " + token})
     session.headers.update({"Accept": "application/vnd.github.v3+json"})
 
-    week_ago = datetime.date.today()-datetime.timedelta(days=7)
+    week_ago = datetime.date.today()-datetime.timedelta(days=14)
 
     print "Merged pull requests since {}:".format(week_ago)
 
     summary = {}
+    ignore_prs = []
 
     prs = get_PRs(session, {"repo": "elastic%2Fbeats", "is": "pr", "state": "closed", "merged":">"+week_ago.strftime("%Y-%m-%d")})
     for pr in prs:
         pr_details = get_PR(session, pr["number"])
 
-        poi = get_poi(pr)
-        branch = get_branch(pr_details)
+        labels = get_labels(pr)
+
+        if "backport" in labels:
+            backported_pr_number = get_backported_pr(pr)
+            ignore_prs.append(backported_pr_number)
+        elif pr["number"] in ignore_prs:
+            print "Ignore PR #{}".format(pr["number"])
+            continue
+
+        poi = get_poi(labels)
+        branch = get_branch(pr_details).split(":")[1]
 
         if branch not in summary:
             summary[branch] = {}
@@ -127,7 +142,8 @@ def main():
             "number": pr["number"],
             "title": pr["title"],
             "merged_at": pr_details["merged_at"],
-            "link": "https://github.com/elastic/beats/pull/{}".format(pr["number"])
+            "link": "https://github.com/elastic/beats/pull/{}".format(pr["number"]),
+            "labels": labels
             })
 
     dump_html(summary)
