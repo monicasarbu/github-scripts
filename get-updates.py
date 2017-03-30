@@ -19,6 +19,7 @@ major_poi = {
     "Heartbeat": "Heartbeat",
     "Winlogbeat": "Winlogbeat",
     ":Packaging": "Packaging",
+    ":Infra": "Infrastructure",
     "new Beat": "New community Beats",
 }
 
