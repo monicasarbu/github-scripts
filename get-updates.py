@@ -48,9 +48,9 @@ def get_PRs(session, search):
     return prs
 
 
-def get_PR(session, number):
+def get_PR(session, path, number):
 
-    url = "{}/repos/elastic/beats/pulls/{}".format(base, number)
+    url = "{}/repos/{}/pulls/{}".format(base, path, number)
 
     result = session.get(url).json()
 
@@ -87,20 +87,18 @@ def get_backported_pr(pr):
     return (v[1][1:])
 
 
-def dump_html(summary):
+def dump_poi_to_html(poi, details):
 
-    for branch, changes in summary.iteritems():
-        print "<p><strong>Changes in {}</strong></p>".format(branch)
+    print "<p><strong>{}</strong></p>".format(poi)
 
-        print "<p>"
-        for poi, list in changes.iteritems():
-            print "<p>{}:</p>".format(poi)
+    for branch, prs in details.iteritems():
 
-            print "<ul>"
-            for pr in list:
-                print "<li>{} <a href=\"{}\">#{}</a> {}</li>".format(pr["title"], pr["link"], pr["number"], pr["labels"])
-            print "</ul>"
-        print "</p>"
+        print "<p>Changes in {}:</p>".format(branch)
+
+        print "<p><ul>"
+        for pr in prs:
+            print "<li>{} <a href=\"{}\">#{}</a> {}</li>".format(pr["title"], pr["link"], pr["number"], pr["labels"])
+        print "</ul></p>"
 
 
 def main():
@@ -117,9 +115,10 @@ def main():
     summary = {}
     ignore_prs = []
 
+    # get all closed PRs from the beats repo
     prs = get_PRs(session, {"repo": "elastic%2Fbeats", "is": "pr", "state": "closed", "merged":">"+week_ago.strftime("%Y-%m-%d")})
     for pr in prs:
-        pr_details = get_PR(session, pr["number"])
+        pr_details = get_PR(session, "elastic/beats", pr["number"])
 
         labels = get_labels(pr)
 
@@ -133,13 +132,13 @@ def main():
         poi = get_poi(labels)
         branch = get_branch(pr_details).split(":")[1]
 
-        if branch not in summary:
-            summary[branch] = {}
+        if poi not in summary:
+            summary[poi] = {}
 
-        if poi not in summary[branch]:
-            summary[branch][poi] = []
+        if branch not in summary[poi]:
+            summary[poi][branch] = []
 
-        summary[branch][poi].append({
+        summary[poi][branch].append({
             "number": pr["number"],
             "title": pr["title"],
             "merged_at": pr_details["merged_at"],
@@ -147,7 +146,33 @@ def main():
             "labels": labels
             })
 
-    dump_html(summary)
+    for poi, changes in summary.iteritems():
+        dump_poi_to_html(poi, changes)
+
+    # get all closed PRs from the kibana repo, done by Chris
+    prs = get_PRs(session, {"repo": "elastic%2Fkibana", "is": "pr", "state": "closed", "merged":
+    ">"+week_ago.strftime("%Y-%m-%d"), "author": "simianhacker" })
+
+    kibana_prs = {}
+    for pr in prs:
+        pr_details = get_PR(session, "elastic/kibana", pr["number"])
+
+        labels = get_labels(pr)
+        branch = get_branch(pr_details).split(":")[1]
+
+        if branch not in kibana_prs:
+            kibana_prs[branch] = []
+
+        kibana_prs[branch].append({
+            "number": pr["number"],
+            "title": pr["title"],
+            "merged_at": pr_details["merged_at"],
+            "link": "https://github.com/elastic/kibana/pull/{}".format(pr["number"]),
+            "labels": labels
+            })
+
+    dump_poi_to_html("Changes in Kibana", kibana_prs)
+
 
 if __name__ == "__main__":
     sys.exit(main())
