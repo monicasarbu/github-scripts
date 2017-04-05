@@ -12,7 +12,7 @@ base = "https://api.github.com"
 beats_poi = {
 
     "docs": "Documentation",
-    "libbeat": "All Beats",
+    "libbeat": "Affecting all Beats",
     "Metricbeat": "Metricbeat",
     "Packetbeat": "Packetbeat",
     "Filebeat": "Filebeat",
@@ -114,10 +114,8 @@ def get_poi(repo, labels):
     if repo == "elastic/beats":
         for poi in beats_poi:
             if poi in labels:
-                return beats_poi[poi]
-    elif repo == "elastic/kibana":
-        return "Kibana"
-    return "Other"
+                return repo + ": " + beats_poi[poi]
+    return repo
 
 
 def get_branch(pr):
@@ -188,6 +186,11 @@ def main():
         dump_changes(prs, out)
 
 
+        # get all closed PRs from the gosigar repo
+        prs = get_PRs(session, "elastic/gosigar", {"repo": "elastic%2Fgosigar", "is": "pr", "state": "closed", "merged":">"+week_ago.strftime("%Y-%m-%d")})
+        dump_changes(prs, out)
+
+        # get all Kibana PRs opened by Chris
         prs = get_PRs(session, "elastic/kibana", {"repo": "elastic%2Fkibana", "is": "pr", "state": "closed", "merged":
         ">"+week_ago.strftime("%Y-%m-%d"), "author": "simianhacker" })
         dump_changes(prs, out)
